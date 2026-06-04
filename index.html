@@ -222,66 +222,96 @@
     </section>
   </div>
 
-  <footer>Data tersimpan di perangkat ini · Rekap bisa diunduh sebagai CSV<br>
+  <footer>Data tersimpan di Google Sheets · Rekap bisa diunduh sebagai CSV<br>
     <span id="footLogin" style="cursor:pointer;color:#5c4a50;font-size:11.5px;text-decoration:underline;text-underline-offset:3px" onclick="openLogin()">Login Kadus</span>
   </footer>
 </div>
 
 <script>
-const DEFAULT_PIN="123456";
-/* tiap sesi = {start,end,act,loc}. Hari libur/pergi = sessions kosong [] */
-const DEF_SCHED={
-  1:{label:"Senin", sessions:[{start:"08:00",end:"11:00",act:"Melayani warga",loc:"Di rumah"},{start:"14:00",end:"16:00",act:"Rapat",loc:"Kantor desa"}],note:""},
-  2:{label:"Selasa",sessions:[{start:"08:00",end:"15:00",act:"Melayani warga",loc:"Di rumah"}],note:""},
-  3:{label:"Rabu",  sessions:[{start:"13:00",end:"17:00",act:"Melayani warga",loc:"Di rumah"}],note:""},
-  4:{label:"Kamis", sessions:[{start:"08:00",end:"15:00",act:"Melayani warga",loc:"Di rumah"}],note:""},
-  5:{label:"Jumat", sessions:[{start:"08:00",end:"11:00",act:"Melayani warga",loc:"Di rumah"},{start:"13:30",end:"16:00",act:"Melayani warga",loc:"Di rumah"}],note:""},
-  6:{label:"Sabtu", sessions:[{start:"09:00",end:"12:00",act:"Melayani warga",loc:"Di rumah"}],note:""},
-  0:{label:"Minggu",sessions:[],note:"Libur"},
-};
-const order=[1,2,3,4,5,6,0];
-let cfg=JSON.parse(localStorage.getItem('kadus_cfg')||'null');
-/* migrasi: array lama [start,end] -> objek {start,end,act,loc} */
-if(cfg&&cfg.sched){for(const d in cfg.sched){const s=cfg.sched[d];
-  if(!s.sessions){s.sessions=s.off?[]:[{start:s.start||"08:00",end:s.end||"12:00",act:"",loc:""}];delete s.start;delete s.end;delete s.off;}
-  s.sessions=s.sessions.map(x=>Array.isArray(x)?{start:x[0],end:x[1],act:"",loc:""}:x);
-}}
-if(!cfg)cfg={sched:DEF_SCHED,dusun:"Dusun Mekar Sari",wa:"",pin:DEFAULT_PIN};
-if(!cfg.pin)cfg.pin=DEFAULT_PIN;
-let letters=JSON.parse(localStorage.getItem('kadus_letters')||'[]');
-let bookings=JSON.parse(localStorage.getItem('kadus_bookings')||'[]');
-const saveAll=()=>{localStorage.setItem('kadus_cfg',JSON.stringify(cfg));
-  localStorage.setItem('kadus_letters',JSON.stringify(letters));localStorage.setItem('kadus_bookings',JSON.stringify(bookings));};
+/* ====== ALAMAT DATABASE (Google Apps Script) ====== */
+const API_URL = "https://script.google.com/macros/s/AKfycbxxgXiXdkhLd_-wBVvApqh4PgKj1rqDHxvfXRwNWSAKTMzMTvXti4cht6c-0B2hJQX7/exec";
 
-let isAdmin=false;
+let cfg = { dusun:"Dusun", wa:"", sched:{} };
+let letters = [];
+let bookings = [];
+let adminPin = sessionStorage.getItem('kadus_pin') || "";
+let isAdmin = false;
+
+const order=[1,2,3,4,5,6,0];
+
+/* ---- panggil server ---- */
+async function apiGet(){
+  const r = await fetch(API_URL, {method:'GET'});
+  return await r.json();
+}
+async function apiPost(payload){
+  const r = await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // hindari preflight CORS
+    body: JSON.stringify(payload)
+  });
+  return await r.json();
+}
+
+/* ---- muat data dari Sheet ---- */
+async function loadData(){
+  try{
+    const d = await apiGet();
+    if(!d.ok) throw new Error(d.error||'gagal');
+    cfg = d.config || cfg;
+    if(!cfg.sched) cfg.sched = {};
+    letters = d.letters || [];
+    bookings = d.bookings || [];
+    renderSched(); renderEditor(); renderAll();
+  }catch(e){
+    document.getElementById('sched').innerHTML =
+      '<p style="color:#ff8a96;font-size:13px">Gagal memuat data dari server. Cek koneksi atau URL database.</p>';
+  }
+}
+
+/* ====== LOGIN (PIN diverifikasi di server) ====== */
 function checkGate(){const q=window.location.search.toLowerCase();
-  if(q.includes('kadus')){if(sessionStorage.getItem('kadus_in')==='1'){enterAdmin();}
-    else{document.getElementById('overlay').classList.add('show');document.getElementById('pinInput').focus();}}}
-function tryLogin(){const v=document.getElementById('pinInput').value;
-  if(v===cfg.pin){sessionStorage.setItem('kadus_in','1');document.getElementById('overlay').classList.remove('show');enterAdmin();}
-  else{document.getElementById('pinErr').textContent='PIN salah, coba lagi.';document.getElementById('pinInput').value='';}}
-function enterAdmin(){isAdmin=true;document.querySelectorAll('.admin-tab').forEach(t=>t.style.display='inline-block');document.getElementById('logoutBtn').style.display='inline-block';document.getElementById('footLogin').style.display='none';}
+  if(q.includes('kadus')){
+    if(sessionStorage.getItem('kadus_in')==='1' && adminPin){enterAdmin();}
+    else{document.getElementById('overlay').classList.add('show');document.getElementById('pinInput').focus();}
+  }}
+async function tryLogin(){
+  const v=document.getElementById('pinInput').value;
+  document.getElementById('pinErr').textContent='Memeriksa...';
+  // verifikasi: kirim aksi admin "aman" (toggle id kosong = tidak mengubah apa pun)
+  const res = await apiPost({action:'toggle', kind:'letters', id:'__verify__', pin:v});
+  if(res.ok){
+    adminPin=v; sessionStorage.setItem('kadus_pin',v); sessionStorage.setItem('kadus_in','1');
+    document.getElementById('overlay').classList.remove('show'); enterAdmin();
+  }else{
+    document.getElementById('pinErr').textContent='PIN salah, coba lagi.';
+    document.getElementById('pinInput').value='';
+  }
+}
+function enterAdmin(){isAdmin=true;document.querySelectorAll('.admin-tab').forEach(t=>t.style.display='inline-block');
+  document.getElementById('logoutBtn').style.display='inline-block';document.getElementById('footLogin').style.display='none';}
 function openLogin(){if(isAdmin)return;document.getElementById('overlay').classList.add('show');document.getElementById('pinInput').focus();}
-function logout(){sessionStorage.removeItem('kadus_in');window.location.href='?';}
+function logout(){sessionStorage.removeItem('kadus_in');sessionStorage.removeItem('kadus_pin');window.location.href='?';}
 document.getElementById('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin();});
 
+/* ====== TABS ====== */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');document.getElementById('tab-'+t.dataset.tab).classList.add('active');});
 
+/* ====== JADWAL ====== */
 const toMin=t=>{const[a,b]=t.split(':').map(Number);return a*60+b};
-/* sesi yang sedang berlangsung sekarang, atau null */
-function currentSession(){const n=new Date();const s=cfg.sched[n.getDay()];if(!s||!s.sessions.length)return null;
+function currentSession(){const n=new Date();const s=cfg.sched[n.getDay()];if(!s||!s.sessions||!s.sessions.length)return null;
   const m=n.getHours()*60+n.getMinutes();
   return s.sessions.find(x=>m>=toMin(x.start)&&m<toMin(x.end))||null;}
 function waLink(num,msg){const n=String(num||'').replace(/\D/g,'').replace(/^0/,'62');return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;}
-function sessText(s){if(!s.sessions.length)return 'Tidak menerima';
+function sessText(s){if(!s.sessions||!s.sessions.length)return 'Tidak menerima';
   return s.sessions.map(x=>{let t=x.start+'–'+x.end;const d=[x.act,x.loc].filter(Boolean).join(' @ ');return t+(d?' '+d:'');}).join('<br>');}
 
 function renderSched(){
   const today=new Date().getDay();const el=document.getElementById('sched');el.innerHTML='';
-  order.forEach(d=>{const s=cfg.sched[d];const open=s.sessions.length>0;
+  order.forEach(d=>{const s=cfg.sched[d];if(!s)return;const open=s.sessions&&s.sessions.length>0;
     const div=document.createElement('div');div.className='slot'+(d===today?' today':'');
     div.style.alignItems='flex-start';
     div.innerHTML=`<span class="day">${s.label}${d===today?' •':''}</span>
@@ -290,28 +320,25 @@ function renderSched(){
   const cur=currentSession();
   const home=cur&&/rumah/i.test(cur.loc||'');
   document.getElementById('liveDot').className='dot '+(home?'in':'out');
-  let txt;
-  if(cur){const loc=cur.loc||cur.act||'Ada agenda';txt='Sekarang: '+loc;}
-  else txt='Sedang tidak ada agenda';
-  document.getElementById('liveStatus').textContent=txt;
-  document.getElementById('dusunName').textContent=cfg.dusun;
+  document.getElementById('liveStatus').textContent = cur ? ('Sekarang: '+(cur.loc||cur.act||'Ada agenda')) : 'Sedang tidak ada agenda';
+  document.getElementById('dusunName').textContent=cfg.dusun||'Dusun';
 }
 
-/* ---- EDITOR MULTI-SESI ---- */
+/* ====== EDITOR JADWAL ====== */
 function renderEditor(){
-  document.getElementById('aDusun').value=cfg.dusun;document.getElementById('aWa').value=cfg.wa;
+  document.getElementById('aDusun').value=cfg.dusun||'';document.getElementById('aWa').value=cfg.wa||'';
   const g=document.getElementById('editGrid');g.innerHTML='';
-  order.forEach(d=>{const s=cfg.sched[d];
+  order.forEach(d=>{const s=cfg.sched[d];if(!s)return;
     const block=document.createElement('div');block.className='dayblock';
-    let h=`<div class="dayhead"><span class="lbl">${s.label}</span></div><div class="sesswrap" data-d="${d}"></div>`;
-    block.innerHTML=h;g.appendChild(block);
+    block.innerHTML=`<div class="dayhead"><span class="lbl">${s.label}</span></div><div class="sesswrap" data-d="${d}"></div>`;
+    g.appendChild(block);
     const wrap=block.querySelector('.sesswrap');
-    s.sessions.forEach((ses,i)=>wrap.appendChild(sessRow(d,i,ses)));
+    (s.sessions||[]).forEach((ses,i)=>wrap.appendChild(sessRow(d,i,ses)));
     const add=document.createElement('button');add.className='addsess';add.textContent='+ Tambah sesi';
-    add.onclick=()=>{cfg.sched[d].sessions.push({start:"08:00",end:"12:00",act:"",loc:"Di rumah"});renderEditor();};
+    add.onclick=()=>{cfg.sched[d].sessions=cfg.sched[d].sessions||[];cfg.sched[d].sessions.push({start:"08:00",end:"12:00",act:"",loc:"Di rumah"});renderEditor();};
     block.appendChild(add);
     const note=document.createElement('div');note.className='field noteinp';
-    note.innerHTML=`<input placeholder="Catatan umum ${s.label} (opsional)" value="${s.note||''}" data-note="${d}">`;
+    note.innerHTML=`<input placeholder="Catatan umum ${s.label} (opsional)" value="${(s.note||'').replace(/"/g,'&quot;')}" data-note="${d}">`;
     block.appendChild(note);
   });
 }
@@ -331,65 +358,84 @@ function sessRow(d,i,ses){
   row.querySelector('.rm').onclick=()=>{cfg.sched[d].sessions.splice(i,1);renderEditor();};
   return row;
 }
-function saveSchedule(){
+async function saveSchedule(){
   cfg.dusun=document.getElementById('aDusun').value.trim()||'Dusun';cfg.wa=document.getElementById('aWa').value.trim();
   document.querySelectorAll('#editGrid input[data-k]').forEach(inp=>{
     cfg.sched[inp.dataset.d].sessions[inp.dataset.i][inp.dataset.k]=inp.value;});
   document.querySelectorAll('#editGrid input[data-note]').forEach(inp=>{cfg.sched[inp.dataset.note].note=inp.value.trim();});
-  saveAll();renderSched();alert('Jadwal tersimpan ✓');
+  const res=await apiPost({action:'saveConfig',dusun:cfg.dusun,wa:cfg.wa,sched:cfg.sched,pin:adminPin});
+  if(res.ok){renderSched();alert('Jadwal tersimpan ✓');}else{alert('Gagal: '+(res.error||'coba lagi'));}
 }
-function changePin(){const v=document.getElementById('aPin').value;
+async function changePin(){const v=document.getElementById('aPin').value;
   if(!/^\d{6}$/.test(v)){alert('PIN harus 6 angka.');return}
-  cfg.pin=v;saveAll();document.getElementById('aPin').value='';alert('PIN berhasil diganti ✓');}
+  const res=await apiPost({action:'changePin',newPin:v,pin:adminPin});
+  if(res.ok){adminPin=v;sessionStorage.setItem('kadus_pin',v);document.getElementById('aPin').value='';alert('PIN berhasil diganti ✓');}
+  else{alert('Gagal: '+(res.error||'coba lagi'));}}
 
-function addLetter(){
-  const name=document.getElementById('sName').value.trim();const wa=document.getElementById('sWa').value.trim();
-  if(!name){alert('Isi nama dulu');return}if(!wa){alert('Nomor WhatsApp wajib diisi');return}
-  letters.push({id:Date.now(),date:new Date().toLocaleString('id-ID'),name,nik:document.getElementById('sNik').value.trim(),wa,
-    type:document.getElementById('sType').value,note:document.getElementById('sNote').value.trim(),done:false});
-  saveAll();renderAll();['sName','sNik','sWa','sNote'].forEach(i=>document.getElementById(i).value='');
-  alert('Permohonan terkirim ✓ Kadus akan mengabari via WhatsApp.');}
-function addBooking(){
-  const name=document.getElementById('bName').value.trim();const wa=document.getElementById('bWa').value.trim();
-  if(!name){alert('Isi nama dulu');return}if(!wa){alert('Nomor WhatsApp wajib diisi');return}
-  bookings.push({id:Date.now(),date:new Date().toLocaleString('id-ID'),name,wa,
-    when:(document.getElementById('bDate').value||'-')+' '+(document.getElementById('bTime').value||''),
-    pax:document.getElementById('bPax').value,note:document.getElementById('bNote').value.trim(),done:false});
-  saveAll();renderAll();['bName','bWa','bDate','bTime','bNote'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('bPax').value=1;alert('Janji temu diajukan ✓ Kadus akan konfirmasi via WhatsApp.');}
+/* ====== FORM WARGA ====== */
+async function addLetter(){
+  const nama=document.getElementById('sName').value.trim();const wa=document.getElementById('sWa').value.trim();
+  if(!nama){alert('Isi nama dulu');return}if(!wa){alert('Nomor WhatsApp wajib diisi');return}
+  const res=await apiPost({action:'addLetter',data:{nama,nik:document.getElementById('sNik').value.trim(),wa,
+    jenis:document.getElementById('sType').value,keperluan:document.getElementById('sNote').value.trim()}});
+  if(res.ok){['sName','sNik','sWa','sNote'].forEach(i=>document.getElementById(i).value='');
+    await loadData();alert('Permohonan terkirim ✓ Kadus akan mengabari via WhatsApp.');}
+  else{alert('Gagal mengirim, coba lagi.');}
+}
+async function addBooking(){
+  const nama=document.getElementById('bName').value.trim();const wa=document.getElementById('bWa').value.trim();
+  if(!nama){alert('Isi nama dulu');return}if(!wa){alert('Nomor WhatsApp wajib diisi');return}
+  const waktu=(document.getElementById('bDate').value||'-')+' '+(document.getElementById('bTime').value||'');
+  const res=await apiPost({action:'addBooking',data:{nama,wa,waktu,
+    jumlah:document.getElementById('bPax').value,keperluan:document.getElementById('bNote').value.trim()}});
+  if(res.ok){['bName','bWa','bDate','bTime','bNote'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('bPax').value=1;await loadData();alert('Janji temu diajukan ✓ Kadus akan konfirmasi via WhatsApp.');}
+  else{alert('Gagal mengirim, coba lagi.');}
+}
+
+/* ====== REKAP ====== */
 function renderAll(){
   const lc=document.getElementById('letters');lc.innerHTML=letters.length?'':'<p style="color:#5c4a50;font-size:13px">Belum ada permohonan.</p>';
-  letters.slice().reverse().forEach(r=>{const div=document.createElement('div');div.className='req';
-    const msg=`Halo ${r.name}, permohonan ${r.type} Anda sudah kami proses. Silakan ambil di rumah Kadus.`;
-    div.innerHTML=`<div class="info"><b>${r.name}</b><span>${r.type}${r.note?' — '+r.note:''} · WA ${r.wa} · ${r.date}</span></div>
-      <div class="right"><span class="badge ${r.done?'done':''}">${r.done?'Selesai':'Menunggu'}</span>
+  letters.slice().reverse().forEach(r=>{const done=r.status==='Selesai';const div=document.createElement('div');div.className='req';
+    const msg=`Halo ${r.nama}, permohonan ${r.jenis} Anda sudah kami proses. Silakan ambil di rumah Kadus.`;
+    div.innerHTML=`<div class="info"><b>${r.nama}</b><span>${r.jenis}${r.keperluan?' — '+r.keperluan:''} · WA ${r.wa} · ${r.tanggal}</span></div>
+      <div class="right"><span class="badge ${done?'done':''}">${r.status}</span>
       <a class="mini wa" href="${waLink(r.wa,msg)}" target="_blank">WA</a>
-      <button class="mini" onclick="toggle('letters',${r.id})">${r.done?'Batal':'Proses'}</button></div>`;lc.appendChild(div);});
+      <button class="mini" onclick="toggle('letters','${r.id}')">${done?'Batal':'Proses'}</button></div>`;lc.appendChild(div);});
   const bc=document.getElementById('bookings');bc.innerHTML=bookings.length?'':'<p style="color:#5c4a50;font-size:13px">Belum ada janji temu.</p>';
-  bookings.slice().reverse().forEach(r=>{const div=document.createElement('div');div.className='req';
-    const msg=`Halo ${r.name}, janji temu Anda pada ${r.when} sudah dikonfirmasi. Sampai jumpa di rumah Kadus.`;
-    div.innerHTML=`<div class="info"><b>${r.name}</b><span>📅 ${r.when} · ${r.pax} orang${r.note?' — '+r.note:''} · WA ${r.wa}</span></div>
-      <div class="right"><span class="badge ${r.done?'done':''}">${r.done?'Dikonfirmasi':'Baru'}</span>
+  bookings.slice().reverse().forEach(r=>{const done=r.status==='Dikonfirmasi';const div=document.createElement('div');div.className='req';
+    const msg=`Halo ${r.nama}, janji temu Anda pada ${r.waktu} sudah dikonfirmasi. Sampai jumpa di rumah Kadus.`;
+    div.innerHTML=`<div class="info"><b>${r.nama}</b><span>📅 ${r.waktu} · ${r.jumlah} orang${r.keperluan?' — '+r.keperluan:''} · WA ${r.wa}</span></div>
+      <div class="right"><span class="badge ${done?'done':''}">${r.status}</span>
       <a class="mini wa" href="${waLink(r.wa,msg)}" target="_blank">WA</a>
-      <button class="mini" onclick="toggle('bookings',${r.id})">${r.done?'Batal':'Konfirmasi'}</button></div>`;bc.appendChild(div);});
-  document.getElementById('stOpen').textContent=letters.filter(r=>!r.done).length;
-  document.getElementById('stDone').textContent=letters.filter(r=>r.done).length;
-  document.getElementById('stBook').textContent=bookings.length;}
-function toggle(kind,id){const arr=kind==='letters'?letters:bookings;const r=arr.find(x=>x.id===id);if(r)r.done=!r.done;saveAll();renderAll();}
-function clearDone(kind){if(kind==='letters')letters=letters.filter(r=>!r.done);else bookings=bookings.filter(r=>!r.done);saveAll();renderAll();}
+      <button class="mini" onclick="toggle('bookings','${r.id}')">${done?'Batal':'Konfirmasi'}</button></div>`;bc.appendChild(div);});
+  document.getElementById('stOpen').textContent=letters.filter(r=>r.status!=='Selesai').length;
+  document.getElementById('stDone').textContent=letters.filter(r=>r.status==='Selesai').length;
+  document.getElementById('stBook').textContent=bookings.length;
+}
+async function toggle(kind,id){const res=await apiPost({action:'toggle',kind,id,pin:adminPin});if(res.ok)await loadData();else alert('Gagal: '+(res.error||''));}
+async function clearDone(kind){if(!confirm('Hapus semua yang sudah selesai?'))return;
+  const res=await apiPost({action:'clearDone',kind,pin:adminPin});if(res.ok)await loadData();else alert('Gagal: '+(res.error||''));}
+
+/* ====== UNDUH CSV ====== */
 function downloadCSV(kind){
   const arr=kind==='letters'?letters:bookings;if(!arr.length){alert('Belum ada data.');return}
   let head,rows;
   if(kind==='letters'){head=['Tanggal Masuk','Nama','NIK','No WA','Jenis Surat','Keperluan','Status'];
-    rows=arr.map(r=>[r.date,r.name,r.nik,r.wa,r.type,r.note,r.done?'Selesai':'Menunggu']);}
+    rows=arr.map(r=>[r.tanggal,r.nama,r.nik,r.wa,r.jenis,r.keperluan,r.status]);}
   else{head=['Tanggal Masuk','Nama','No WA','Waktu Temu','Jumlah Orang','Keperluan','Status'];
-    rows=arr.map(r=>[r.date,r.name,r.wa,r.when,r.pax,r.note,r.done?'Dikonfirmasi':'Baru']);}
-  const esc=v=>`"${String(v||'').replace(/"/g,'""')}"`;
+    rows=arr.map(r=>[r.tanggal,r.nama,r.wa,r.waktu,r.jumlah,r.keperluan,r.status]);}
+  const esc=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
   const csv='\uFEFF'+[head,...rows].map(r=>r.map(esc).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=(kind==='letters'?'rekap-surat':'rekap-janji-temu')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+  a.download=(kind==='letters'?'rekap-surat':'rekap-janji-temu')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
 
-checkGate();renderSched();renderEditor();renderAll();setInterval(renderSched,30000);
+/* ====== MULAI ====== */
+checkGate();
+loadData();
+setInterval(renderSched,30000);
+setInterval(loadData,60000); // segarkan data tiap 1 menit
 </script>
 </body>
 </html>
