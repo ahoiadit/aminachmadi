@@ -68,14 +68,26 @@ body{
 
 /* STATUS PILLS — warga */
 .pills{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 14px}
+.clock-bar{
+  display:flex;align-items:center;gap:6px;padding:0 20px 10px;
+  font-family:'Montserrat';font-size:13px;color:var(--muted);font-weight:500;
+}
+.clock-sep{color:var(--border)}
+#clockTime{color:var(--ink2);font-size:15px}
+.pill-next{font-size:11px;color:var(--mint2);font-weight:600;margin-top:2px;min-height:14px}
+.pill-wa{display:inline-block;margin-top:6px;font-size:12px;font-weight:700;font-family:'Montserrat';
+  color:var(--mint2);text-decoration:none;letter-spacing:.2px;
+  background:rgba(0,200,150,.08);padding:4px 10px;border-radius:8px;border:1px solid rgba(0,200,150,.2);transition:.2s}
+.pill-wa:hover{background:rgba(0,200,150,.18);border-color:var(--mint)}
 .status-pill{
-  display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:14px;flex:1;min-width:140px;
+  display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;flex:1;min-width:140px;
   background:var(--surface);border:1px solid var(--border);
   box-shadow:0 2px 12px rgba(0,150,120,.08);
 }
 .pill-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .pill-dot.home{background:#00c896;box-shadow:0 0 0 3px rgba(0,200,150,.2),0 0 8px rgba(0,200,150,.6)}
 .pill-dot.away{background:#818cf8;box-shadow:0 0 0 3px rgba(129,140,248,.2),0 0 6px rgba(129,140,248,.5)}
+.pill-dot.none{background:#cbd5e1;box-shadow:0 0 0 3px rgba(203,213,225,.3)}
 .pill-name{font-size:11px;font-weight:700;font-family:'Montserrat';color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
 .pill-loc{font-size:12.5px;font-weight:600;color:var(--ink2);margin-top:1px}
 
@@ -312,6 +324,28 @@ body{
 .logout-btn{font-size:12px;color:var(--muted);background:rgba(255,255,255,.7);border:1.5px solid var(--border2);
   border-radius:10px;padding:8px 14px;cursor:pointer;font-family:'Montserrat';font-weight:600;transition:.2s}
 .logout-btn:hover{border-color:var(--mint);color:var(--mint2)}
+/* LOKASI */
+.loc-card{background:var(--surface);border-radius:16px;padding:16px;margin-bottom:10px;
+  border:1px solid rgba(0,0,0,.06);box-shadow:0 2px 8px rgba(0,150,120,.06);
+  display:flex;align-items:flex-start;gap:14px;}
+.loc-icon{font-size:28px;flex-shrink:0;width:46px;height:46px;background:var(--surface2);
+  border-radius:12px;display:grid;place-items:center;border:1px solid var(--border)}
+.loc-info{flex:1;min-width:0}
+.loc-label{font-size:10.5px;font-weight:700;font-family:'Montserrat';letter-spacing:.5px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.loc-name{font-weight:700;font-family:'Montserrat';font-size:14px;color:var(--ink);margin-bottom:2px}
+.loc-addr{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.loc-actions{display:flex;gap:8px;flex-wrap:wrap}
+.loc-btn{font-size:12px;font-weight:600;font-family:'Montserrat';padding:7px 12px;border-radius:10px;
+  text-decoration:none;transition:.2s;display:inline-block;
+  background:rgba(0,0,0,.05);color:var(--ink2);border:1px solid rgba(0,0,0,.08)}
+.loc-btn:hover{background:rgba(0,200,150,.1);border-color:var(--mint);color:var(--mint2)}
+.loc-btn.primary{background:linear-gradient(135deg,var(--mint),var(--mint2));color:#fff;border-color:transparent;
+  box-shadow:0 4px 12px rgba(0,200,150,.3)}
+.loc-btn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,200,150,.4)}
+.map-embed{margin-top:16px;margin-bottom:20px}
+.map-legend{display:flex;gap:14px;margin-top:10px;justify-content:center;flex-wrap:wrap}
+.map-pin{font-size:12px;font-weight:600;font-family:'Montserrat';color:var(--ink2);display:flex;align-items:center;gap:5px}
 footer{text-align:center;color:rgba(107,140,168,.7);font-size:12px;margin-top:32px;
   font-family:'Montserrat';letter-spacing:.2px;padding:0 20px}
 </style>
@@ -356,20 +390,30 @@ footer{text-align:center;color:rgba(107,140,168,.7);font-size:12px;margin-top:32
           </div>
         </div>
       </div>
+      <!-- JAM & TANGGAL REALTIME -->
+      <div class="clock-bar">
+        <span id="clockDate"></span>
+        <span class="clock-sep">·</span>
+        <span id="clockTime" style="font-weight:700"></span>
+      </div>
       <!-- STATUS PILLS -->
       <div class="pills" id="pillsArea">
         <div class="status-pill">
           <span class="pill-dot home" id="dotAmin"></span>
-          <div>
-            <div class="pill-name">Pak Amin</div>
+          <div style="flex:1;min-width:0">
+            <div class="pill-name">Pak Amin Achmadi</div>
             <div class="pill-loc" id="statusAmin">Memuat…</div>
+            <div class="pill-next" id="nextAmin"></div>
+            <a class="pill-wa" href="https://wa.me/6285643934550" target="_blank">📱 0856-4393-4550</a>
           </div>
         </div>
         <div class="status-pill">
           <span class="pill-dot home" id="dotLia"></span>
-          <div>
-            <div class="pill-name">Bu Lia</div>
+          <div style="flex:1;min-width:0">
+            <div class="pill-name">Bu Lia Rachmasari</div>
             <div class="pill-loc" id="statusLia">Memuat…</div>
+            <div class="pill-next" id="nextLia"></div>
+            <a class="pill-wa" href="https://wa.me/6285743426330" target="_blank">📱 0857-4342-6330</a>
           </div>
         </div>
       </div>
@@ -398,6 +442,57 @@ footer{text-align:center;color:rgba(107,140,168,.7);font-size:12px;margin-top:32
       </div>
       <div id="schedAmin"></div>
       <div id="schedLia" style="display:none"></div>
+
+      <!-- SEKSI LOKASI -->
+      <div style="height:20px"></div>
+      <div class="section-title"><span class="pill-bar"></span>Lokasi Layanan</div>
+      <p class="section-sub">Datangi lokasi sesuai jadwal kehadiran Kadus.</p>
+
+      <!-- KARTU RUMAH -->
+      <div class="loc-card">
+        <div class="loc-icon">🏠</div>
+        <div class="loc-info">
+          <div class="loc-label">Rumah Kadus — Tempat Melayani Warga</div>
+          <div class="loc-name">Amin Achmadi</div>
+          <div class="loc-addr">Dukuh Tegalyoso, Banyuraden, Kec. Gamping, Sleman, DIY 55293</div>
+          <div class="loc-actions">
+            <a class="loc-btn primary" href="https://maps.app.goo.gl/VkfpeKEFpkFqRwuJA" target="_blank">📍 Buka di Maps</a>
+            <a class="loc-btn" href="https://www.google.com/maps/dir/?api=1&destination=-7.783,110.3205" target="_blank">🧭 Petunjuk Arah</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- KARTU KANTOR -->
+      <div class="loc-card">
+        <div class="loc-icon">🏛️</div>
+        <div class="loc-info">
+          <div class="loc-label">Kantor Kelurahan — Kadus Kadang Bertugas di Sini</div>
+          <div class="loc-name">Kelurahan Banyuraden</div>
+          <div class="loc-addr">Jl. Raya Wates-Jogjakarta, Banyuraden, Kec. Gamping, Sleman, DIY 55294</div>
+          <div class="loc-actions">
+            <a class="loc-btn primary" href="https://maps.google.com/?cid=3621414037265305992" target="_blank">📍 Buka di Maps</a>
+            <a class="loc-btn" href="https://www.google.com/maps/dir/?api=1&destination=-7.7880124,110.3339" target="_blank">🧭 Petunjuk Arah</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- EMBED MAP — dua pin: rumah & kantor -->
+      <div class="map-embed">
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3954.2!2d110.3250!3d-7.7855!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!4m3!3e0!4m0!4m0!5e0!3m2!1sid!2sid!4v1&markers=color:red%7Clabel:R%7C-7.783,110.3205&markers=color:blue%7Clabel:K%7C-7.7880124,110.3339"
+          width="100%" height="260" style="border:0;border-radius:14px;display:block" allowfullscreen loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div class="map-legend">
+          <span class="map-pin red">📍 Rumah Kadus</span>
+          <span class="map-pin blue">🏛️ Kantor Kelurahan</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <a href="https://maps.app.goo.gl/VkfpeKEFpkFqRwuJA" target="_blank" class="loc-btn primary" style="flex:1;text-align:center;text-decoration:none">📍 Buka Rumah Kadus</a>
+          <a href="https://maps.google.com/?cid=3621414037265305992" target="_blank" class="loc-btn" style="flex:1;text-align:center;text-decoration:none">🏛️ Buka Kantor Kelurahan</a>
+        </div>
+      </div>
+
+      </div>
     </div>
 
     <!-- PANEL: SURAT -->
@@ -542,7 +637,7 @@ footer{text-align:center;color:rgba(107,140,168,.7);font-size:12px;margin-top:32
 const API_URL="https://script.google.com/macros/s/AKfycbxxgXiXdkhLd_-wBVvApqh4PgKj1rqDHxvfXRwNWSAKTMzMTvXti4cht6c-0B2hJQX7/exec";
 const PETUGAS={amin:{id:'amin',nama:'Pak Amin Achmadi',short:'Pak Amin'},lia:{id:'lia',nama:'Bu Lia Rachmasari',short:'Bu Lia'}};
 const order=[1,2,3,4,5,6,0];
-let cfg={dusun:'Dusun',waAmin:'',waLia:'',schedAmin:{},schedLia:{}};
+let cfg={dusun:'Dukuh Tiga Banyuraden',waAmin:'',waLia:'',schedAmin:{},schedLia:{}};
 let letters=[],bookings=[];
 let adminPin=sessionStorage.getItem('kadus_pin')||'';
 let isAdmin=false;
@@ -576,18 +671,33 @@ async function loadData(){
 const toMin=t=>{const[a,b]=t.split(':').map(Number);return a*60+b};
 function currentSess(sched){const n=new Date();const s=sched[n.getDay()];if(!s||!s.sessions||!s.sessions.length)return null;
   const m=n.getHours()*60+n.getMinutes();return s.sessions.find(x=>m>=toMin(x.start)&&m<toMin(x.end))||null;}
+function nextSess(sched){const n=new Date();const s=sched[n.getDay()];if(!s||!s.sessions||!s.sessions.length)return null;
+  const m=n.getHours()*60+n.getMinutes();return s.sessions.find(x=>toMin(x.start)>m)||null;}
 function updateStatus(){
-  [{id:'amin',dotId:'dotAmin',txtId:'statusAmin',pswId:'pswStatusAmin',sched:cfg.schedAmin},
-   {id:'lia', dotId:'dotLia', txtId:'statusLia', pswId:'pswStatusLia',sched:cfg.schedLia}].forEach(p=>{
-    const cur=currentSess(p.sched);
+  [{id:'amin',dotId:'dotAmin',txtId:'statusAmin',nextId:'nextAmin',pswId:'pswStatusAmin',sched:cfg.schedAmin},
+   {id:'lia', dotId:'dotLia', txtId:'statusLia', nextId:'nextLia', pswId:'pswStatusLia',sched:cfg.schedLia}].forEach(p=>{
+    const cur=currentSess(p.sched);const nxt=nextSess(p.sched);
     const home=cur&&/rumah/i.test(cur.loc||'');
     const dot=document.getElementById(p.dotId);
-    if(dot)dot.className='pill-dot '+(home?'home':'away');
-    const txt=cur?('📍 '+(cur.loc||cur.act||'Ada agenda')):'Tidak ada agenda';
-    const el=document.getElementById(p.txtId);if(el)el.textContent=txt;
-    const psw=document.getElementById(p.pswId);if(psw)psw.textContent=txt;
+    if(dot)dot.className='pill-dot '+(cur?(home?'home':'away'):'none');
+    const locTxt=cur?(cur.loc||cur.act||'Ada agenda'):'Tidak ada agenda';
+    const el=document.getElementById(p.txtId);if(el)el.textContent='📍 '+locTxt;
+    const nextEl=document.getElementById(p.nextId);
+    if(nextEl)nextEl.textContent=cur?(cur.start+'–'+cur.end):(nxt?'⏰ Berikutnya '+nxt.start+'–'+nxt.end+(nxt.loc?' · '+nxt.loc:''):'');
+    const psw=document.getElementById(p.pswId);if(psw)psw.textContent=cur?locTxt:(nxt?'Berikutnya '+nxt.start:'Tidak ada agenda');
   });
 }
+/* CLOCK */
+const HARI=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const BULAN=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+function tickClock(){
+  const n=new Date();
+  const tgl=HARI[n.getDay()]+', '+n.getDate()+' '+BULAN[n.getMonth()]+' '+n.getFullYear();
+  const jam=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+  const d=document.getElementById('clockDate');const t=document.getElementById('clockTime');
+  if(d)d.textContent=tgl;if(t)t.textContent=jam;
+}
+tickClock();setInterval(tickClock,1000);
 
 function sessText(s){if(!s.sessions||!s.sessions.length)return '<span style="color:#94a3b8">Tidak menerima</span>';
   return s.sessions.map(x=>{
@@ -624,34 +734,98 @@ function pilihPetugas(form,who){
     document.getElementById(who==='amin'?'bPetAmin':'bPetLia').classList.add('sel');}
 }
 
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+/* ---- NOMOR WA KADUS (tetap, tidak berubah) ---- */
+const WA_KADUS={
+  amin:'6285643934550',   // Amin Achmadi
+  lia :'6285743426330'    // Lia Rachmasari
+};
+
 function waLink(num,msg){const n=String(num||'').replace(/\D/g,'').replace(/^0/,'62');return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;}
 
+/* Template WA ke Kadus setelah warga submit surat */
+function templateSurat(data){
+  const tgl=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  return `Assalamu'alaikum Wr. Wb.
+
+Yth. Bapak/Ibu Kepala Dusun Dukuh Tiga Banyuraden,
+
+Dengan hormat, saya ingin menyampaikan permohonan surat sebagai berikut:
+
+📋 *PERMOHONAN SURAT*
+━━━━━━━━━━━━━━━━
+👤 Nama        : ${data.nama}
+🪪 NIK         : ${data.nik||'-'}
+📱 No. WA      : ${data.wa}
+📄 Jenis Surat : ${data.jenis}
+📝 Keperluan   : ${data.keperluan||'-'}
+📅 Tanggal     : ${tgl}
+━━━━━━━━━━━━━━━━
+
+Mohon kiranya dapat diproses sesuai prosedur yang berlaku. Atas perhatian dan bantuannya, saya ucapkan terima kasih.
+
+Wassalamu'alaikum Wr. Wb.
+_Pesan ini dikirim otomatis dari dashboard warga Dukuh Tiga Banyuraden_`;
+}
+
+/* Template WA ke Kadus setelah warga submit janji temu */
+function templateJanji(data){
+  const tgl=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const tglTemu=data.waktu&&data.waktu!=='-'?data.waktu:'belum ditentukan';
+  return `Assalamu'alaikum Wr. Wb.
+
+Yth. Bapak/Ibu Kepala Dusun Dukuh Tiga Banyuraden,
+
+Dengan hormat, saya ingin mengajukan permohonan janji temu sebagai berikut:
+
+🤝 *PERMOHONAN JANJI TEMU*
+━━━━━━━━━━━━━━━━
+👤 Nama        : ${data.nama}
+📱 No. WA      : ${data.wa}
+📅 Waktu Temu  : ${tglTemu}
+👥 Jumlah Orang: ${data.jumlah||'1'} orang
+📝 Keperluan   : ${data.keperluan||'-'}
+📅 Tgl. Kirim  : ${tgl}
+━━━━━━━━━━━━━━━━
+
+Mohon konfirmasinya apakah waktu tersebut dapat dipenuhi. Apabila tidak berkenan, saya siap menyesuaikan waktu yang Bapak/Ibu tentukan.
+
+Atas perhatian dan kebijaksanaannya, saya ucapkan terima kasih.
+
+Wassalamu'alaikum Wr. Wb.
+_Pesan ini dikirim otomatis dari dashboard warga Dukuh Tiga Banyuraden_`;
+}
 async function addLetter(){
   const nama=document.getElementById('sName').value.trim(),wa=document.getElementById('sWa').value.trim();
   if(!nama){alert('Isi nama dulu');return}if(!wa){alert('No. WhatsApp wajib diisi');return}
   const btn=event.target;btn.textContent='Mengirim…';btn.disabled=true;
-  const res=await apiPost({action:'addLetter',data:{nama,nik:document.getElementById('sNik').value.trim(),wa,
-    jenis:document.getElementById('sType').value,keperluan:document.getElementById('sNote').value.trim(),petugas:selSurat}});
+  const nik=document.getElementById('sNik').value.trim();
+  const jenis=document.getElementById('sType').value;
+  const keperluan=document.getElementById('sNote').value.trim();
+  const res=await apiPost({action:'addLetter',data:{nama,nik,wa,jenis,keperluan,petugas:selSurat}});
   btn.textContent='Kirim Permohonan Surat →';btn.disabled=false;
-  if(res.ok){['sName','sNik','sWa','sNote'].forEach(i=>document.getElementById(i).value='');
-    toast('✓ Permohonan terkirim! '+PETUGAS[selSurat].short+' akan menghubungi via WA.');
-    await loadData();}
-  else alert('Gagal mengirim, coba lagi.');
+  if(res.ok){
+    ['sName','sNik','sWa','sNote'].forEach(i=>document.getElementById(i).value='');
+    window.open(waLink(WA_KADUS[selSurat], templateSurat({nama,nik,wa,jenis,keperluan})),'_blank');
+    toast('✓ Terkirim! WhatsApp ke '+PETUGAS[selSurat].short+' dibuka otomatis.');
+    await loadData();
+  }else alert('Gagal mengirim, coba lagi.');
 }
 async function addBooking(){
   const nama=document.getElementById('bName').value.trim(),wa=document.getElementById('bWa').value.trim();
   if(!nama){alert('Isi nama dulu');return}if(!wa){alert('No. WhatsApp wajib diisi');return}
   const waktu=(document.getElementById('bDate').value||'-')+' '+(document.getElementById('bTime').value||'');
+  const jumlah=document.getElementById('bPax').value;
+  const keperluan=document.getElementById('bNote').value.trim();
   const btn=event.target;btn.textContent='Mengirim…';btn.disabled=true;
-  const res=await apiPost({action:'addBooking',data:{nama,wa,waktu,
-    jumlah:document.getElementById('bPax').value,keperluan:document.getElementById('bNote').value.trim(),petugas:selBooking}});
+  const res=await apiPost({action:'addBooking',data:{nama,wa,waktu,jumlah,keperluan,petugas:selBooking}});
   btn.textContent='Ajukan Janji Temu →';btn.disabled=false;
-  if(res.ok){['bName','bWa','bDate','bTime','bNote'].forEach(i=>document.getElementById(i).value='');
+  if(res.ok){
+    ['bName','bWa','bDate','bTime','bNote'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('bPax').value=1;
-    toast('✓ Janji diajukan! '+PETUGAS[selBooking].short+' akan konfirmasi via WA.');
-    await loadData();}
-  else alert('Gagal mengirim, coba lagi.');
+    window.open(waLink(WA_KADUS[selBooking], templateJanji({nama,wa,waktu,jumlah,keperluan})),'_blank');
+    toast('✓ Terkirim! WhatsApp ke '+PETUGAS[selBooking].short+' dibuka otomatis.');
+    await loadData();
+  }else alert('Gagal mengirim, coba lagi.');
 }
 
 function renderAll(){
